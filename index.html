@@ -1,98 +1,162 @@
+[slides]
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard Completo</title>
+    <title>Dashboard Multidimensional - D3.js Pro</title>
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #f4f4f9; padding: 20px; }
-        .chart-container { width: 90%; max-width: 900px; margin: 20px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        button { padding: 12px 24px; font-size: 16px; cursor: pointer; background-color: #3498db; color: white; border: none; border-radius: 5px; font-weight: bold; }
+        body { font-family: 'Poppins', sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .slide-container { background: white; width: 1200px; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); position: relative; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 15px; }
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .chart-card { border: 1px solid #eef; border-radius: 10px; padding: 15px; background: #fff; }
+        
+        button { background: #4285F4; color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: 0.3s; }
+        button:hover { background: #3367d6; transform: scale(1.05); }
+
+        /* Estilos D3 */
+        .tooltip { position: absolute; padding: 12px; background: rgba(30, 41, 59, 0.9); color: #fff; border-radius: 8px; pointer-events: none; font-size: 13px; z-index: 100; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .bubble { stroke-width: 2px; cursor: pointer; }
+        .bubble:hover { stroke: #000 !important; }
+        .axis-text { font-size: 12px; fill: #666; }
     </style>
 </head>
 <body>
 
-    <h1>Dashboard de Ventas</h1>
-    <button onclick="actualizarDatos()">Actualizar Datos</button>
-
-    <div class="chart-container">
-        <h2>Google Charts: Comparativa</h2>
-        <div id="google_chart_div" style="height: 300px;"></div>
-    </div>
-    
-    <div class="chart-container">
-        <h2>D3.js: Distribución por Producto</h2>
-        <div id="d3_chart_div"></div>
+<div class="slide-container">
+    <div class="header">
+        <h2>Dashboard Estratégico de Ventas</h2>
+        <button onclick="actualizarDashboard()">Actualizar Simulación</button>
     </div>
 
-    <script>
-        let ventasData = [
-            {producto: "Smartphone A", enero: 120, febrero: 150},
-            {producto: "Smartphone B", enero: 85, febrero: 90},
-            {producto: "Tablet X", enero: 60, febrero: 70}
-        ];
+    <div class="charts-grid">
+        <div class="chart-card">
+            <h3>Comparativa Enero vs Febrero</h3>
+            <div id="google_chart_div" style="height: 400px;"></div>
+        </div>
+        <div class="chart-card">
+            <h3>Análisis de 4 Dimensiones (D3.js)</h3>
+            <div id="d3_chart_div" style="height: 400px;"></div>
+        </div>
+    </div>
+</div>
 
-        const colorMap = { "Smartphone A": "#4285F4", "Smartphone B": "#DB4437", "Tablet X": "#F4B400" };
+<script>
+    // 1. DATASET INICIAL
+    let baseData = [
+        {producto: "Smartphone A", enero: 120, febrero: 150, precio: 200},
+        {producto: "Smartphone B", enero: 85, febrero: 90, precio: 220},
+        {producto: "Tablet X", enero: 60, febrero: 70, precio: 350}
+    ];
 
-        function actualizarDatos() {
-            ventasData.forEach(d => {
-                d.enero = Math.floor(Math.random() * 180) + 20;
-                d.febrero = Math.floor(Math.random() * 180) + 20;
+    const COLORS = { Enero: '#4285F4', Febrero: '#DB4437' };
+
+    // 2. INICIALIZACIÓN
+    google.charts.load('current', {'packages':['corechart']});
+    google.charts.setOnLoadCallback(() => {
+        drawGoogleChart();
+        initD3Chart();
+    });
+
+    function actualizarDashboard() {
+        baseData.forEach(d => {
+            d.enero = Math.floor(Math.random() * 150) + 30;
+            d.febrero = Math.floor(Math.random() * 150) + 30;
+            // El precio también fluctúa ligeramente
+            d.precio = d.precio + (Math.random() * 20 - 10);
+        });
+        drawGoogleChart();
+        updateD3Chart();
+    }
+
+    // 3. GOOGLE CHARTS
+    function drawGoogleChart() {
+        const data = google.visualization.arrayToDataTable([
+            ['Producto', 'Enero', 'Febrero'],
+            ...baseData.map(d => [d.producto, d.enero, d.febrero])
+        ]);
+        const options = { colors: [COLORS.Enero, COLORS.Febrero], animation: {duration: 800, easing: 'out'}, legend: 'top', chartArea: {width: '80%'} };
+        new google.visualization.ColumnChart(document.getElementById('google_chart_div')).draw(data, options);
+    }
+
+    // 4. D3.JS - MANEJO DE TRANSICIONES Y EVENTOS
+    let svg, xScale, yScale, rScale;
+
+    function initD3Chart() {
+        const container = d3.select("#d3_chart_div");
+        const width = container.node().offsetWidth;
+        const height = container.node().offsetHeight;
+
+        svg = container.append("svg").attr("width", width).attr("height", height);
+
+        xScale = d3.scalePoint().domain(baseData.map(d => d.producto)).range([80, width - 80]).padding(0.5);
+        yScale = d3.scaleLinear().domain([0, 200]).range([height - 50, 50]);
+        rScale = d3.scaleSqrt().domain([100, 400]).range([10, 40]);
+
+        // Ejes
+        svg.append("g").attr("transform", `translate(0,${height - 50})`).call(d3.axisBottom(xScale));
+        svg.append("g").attr("transform", "translate(60,0)").call(d3.axisLeft(yScale));
+
+        updateD3Chart();
+    }
+
+    function updateD3Chart() {
+        const flatData = [];
+        baseData.forEach(d => {
+            flatData.push({p: d.producto, v: d.enero, mes: 'Enero', precio: d.precio});
+            flatData.push({p: d.producto, v: d.febrero, mes: 'Febrero', precio: d.precio});
+        });
+
+        const circles = svg.selectAll(".bubble").data(flatData);
+
+        // EXIT: Eliminar burbujas viejas
+        circles.exit().remove();
+
+        // ENTER + UPDATE: Crear y animar burbujas
+        circles.enter()
+            .append("circle")
+            .attr("class", "bubble")
+            .attr("cx", d => xScale(d.p))
+            .attr("cy", d => yScale(d.v))
+            .attr("r", 0) // Empiezan en cero para animación de entrada
+            .merge(circles)
+            .transition().duration(800) // TRANSICIÓN Y ANIMACIÓN
+            .attr("cx", d => xScale(d.p) + (d.mes === 'Enero' ? -30 : 30))
+            .attr("cy", d => yScale(d.v))
+            .attr("r", d => rScale(d.precio))
+            .attr("fill", d => COLORS[d.mes])
+            .attr("stroke", "#fff");
+
+        // EVENTOS
+        svg.selectAll(".bubble")
+            .on("mouseover", function(event, d) {
+                const ingresos = (d.v * d.precio).toLocaleString('es-MX', {style:'currency', currency:'MXN'});
+                d3.select(this).transition().duration(200).attr("r", rScale(d.precio) + 5);
+                
+                d3.select("body").append("div").attr("class", "tooltip")
+                    .html(`<strong>${d.p} (${d.mes})</strong><br>
+                           Ventas: ${d.v} unidades<br>
+                           Precio: $${d.precio.toFixed(2)}<br>
+                           <span style="color:#0f0">Ingresos: ${ingresos}</span>`)
+                    .style("left", (event.pageX + 15) + "px")
+                    .style("top", (event.pageY - 20) + "px");
+            })
+            .on("mouseout", function(event, d) {
+                d3.select(this).transition().duration(200).attr("r", rScale(d.precio));
+                d3.selectAll(".tooltip").remove();
+            })
+            .on("click", function(event, d) {
+                // EVENTO CLICK: Efecto de pulso y alerta informativa
+                d3.select(this).transition().duration(100).attr("r", rScale(d.precio) + 15)
+                  .transition().duration(100).attr("r", rScale(d.precio));
+                alert(`Análisis Detallado:\nEl ${d.p} en ${d.mes} generó un rendimiento de ${(d.v / 2).toFixed(1)}% sobre el objetivo.`);
             });
-            drawGoogleChart();
-            drawD3Chart();
-        }
+    }
+</script>
 
-        google.charts.load('current', {'packages':['corechart']});
-        google.charts.setOnLoadCallback(drawGoogleChart);
-
-        function drawGoogleChart() {
-            const dataTable = new google.visualization.DataTable();
-            dataTable.addColumn('string', 'Producto');
-            dataTable.addColumn('number', 'Enero');
-            dataTable.addColumn('number', 'Febrero');
-            ventasData.forEach(d => dataTable.addRow([d.producto, d.enero, d.febrero]));
-            
-            const options = { title: 'Ventas por Producto', hAxis: {title: 'Producto'}, vAxis: {title: 'Ventas'} };
-            const chart = new google.visualization.ColumnChart(document.getElementById('google_chart_div'));
-            chart.draw(dataTable, options);
-        }
-
-        function drawD3Chart() {
-            d3.select("#d3_chart_div").selectAll("svg").remove();
-            const svg = d3.select("#d3_chart_div").append("svg").attr("width", 800).attr("height", 350);
-            
-            // Transformar datos para D3
-            const allData = [];
-            ventasData.forEach(d => {
-                allData.push({p: d.producto, v: d.enero, mes: 'Enero'});
-                allData.push({p: d.producto, v: d.febrero, mes: 'Febrero'});
-            });
-
-            // Ejes y Etiquetas
-            svg.append("text").attr("x", 400).attr("y", 340).style("text-anchor", "middle").text("Mes (Enero / Febrero)");
-            svg.append("text").attr("transform", "rotate(-90)").attr("y", 20).attr("x", -150).style("text-anchor", "middle").text("Ventas");
-
-            // Burbujas
-            svg.selectAll("circle")
-                .data(allData)
-                .enter().append("circle")
-                .attr("cx", (d, i) => 150 + i * 100)
-                .attr("cy", 150)
-                .attr("r", d => d.v / 5)
-                .attr("fill", d => colorMap[d.p])
-                .attr("stroke", "#333");
-
-            // LEYENDA DE PRODUCTOS
-            const legend = svg.selectAll(".legend")
-                .data(Object.keys(colorMap))
-                .enter().append("g")
-                .attr("transform", (d, i) => `translate(600, ${50 + i * 25})`);
-
-            legend.append("rect").attr("width", 15).attr("height", 15).attr("fill", d => colorMap[d]);
-            legend.append("text").attr("x", 20).attr("y", 12).text(d => d).style("font-size", "12px");
-        }
-    </script>
 </body>
 </html>
+
