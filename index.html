@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard Dinámico - Barras Agrupadas</title>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #f4f4f9; padding: 20px; }
+        .chart-container { width: 90%; max-width: 800px; margin: 20px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        button { padding: 12px 24px; font-size: 16px; cursor: pointer; background-color: #3498db; color: white; border: none; border-radius: 5px; font-weight: bold; }
+        button:hover { background-color: #2980b9; }
+    </style>
+</head>
+<body>
+
+    <h1>Dashboard Dinámico de Ventas</h1>
+    <button onclick="actualizarDatos()">Actualizar Datos</button>
+
+    <div class="chart-container">
+        <h2>Google Charts: Comparativa (Barras Agrupadas)</h2>
+        <div id="google_chart_div" style="height: 300px;"></div>
+    </div>
+    
+    <div class="chart-container">
+        <h2>D3.js: Distribución</h2>
+        <div id="d3_chart_div"></div>
+    </div>
+
+    <script>
+        // 1. DATOS (Estructura optimizada)
+        let ventasData = [
+            {producto: "Smartphone A", enero: 120, febrero: 150},
+            {producto: "Smartphone B", enero: 85, febrero: 90},
+            {producto: "Tablet X", enero: 60, febrero: 70}
+        ];
+
+        // 2. FUNCIÓN DE ACTUALIZACIÓN
+        function actualizarDatos() {
+            ventasData.forEach(d => {
+                d.enero = Math.floor(Math.random() * 180) + 20;
+                d.febrero = Math.floor(Math.random() * 180) + 20;
+            });
+            drawGoogleChart();
+            drawD3Chart();
+        }
+
+        // 3. GOOGLE CHARTS (Barras agrupadas)
+        google.charts.load('current', {'packages':['corechart']});
+        google.charts.setOnLoadCallback(drawGoogleChart);
+
+        function drawGoogleChart() {
+            const dataTable = new google.visualization.DataTable();
+            dataTable.addColumn('string', 'Producto');
+            dataTable.addColumn('number', 'Enero');
+            dataTable.addColumn('number', 'Febrero');
+            
+            ventasData.forEach(d => {
+                dataTable.addRow([d.producto, d.enero, d.febrero]);
+            });
+            
+            const options = { 
+                title: 'Ventas por Producto (Enero vs Febrero)',
+                animation: {duration: 500},
+                hAxis: { title: 'Producto' },
+                vAxis: { title: 'Ventas' },
+                colors: ['#4285F4', '#DB4437'] // Azul para Enero, Rojo para Febrero
+            };
+            const chart = new google.visualization.ColumnChart(document.getElementById('google_chart_div'));
+            chart.draw(dataTable, options);
+        }
+
+        // 4. D3.JS
+        function drawD3Chart() {
+            d3.select("#d3_chart_div").selectAll("svg").remove();
+            const svg = d3.select("#d3_chart_div").append("svg").attr("width", 700).attr("height", 300);
+            
+            // Dibujamos un círculo por mes (enero + febrero)
+            const allData = [];
+            ventasData.forEach(d => {
+                allData.push({p: d.producto, v: d.enero, mes: 'Enero'});
+                allData.push({p: d.producto, v: d.febrero, mes: 'Febrero'});
+            });
+
+            svg.selectAll("circle")
+                .data(allData)
+                .enter().append("circle")
+                .attr("cx", (d, i) => 100 + i * 100)
+                .attr("cy", 150)
+                .attr("r", d => d.v / 5)
+                .attr("fill", d => d.mes === 'Enero' ? '#4285F4' : '#DB4437')
+                .attr("stroke", "#333");
+        }
+    </script>
+</body>
+</html>
